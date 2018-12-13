@@ -64,7 +64,7 @@ void loop() {
       String s = extractAngle(dataOUT);
       if(s != "False"){
         int angle = s.toInt();
-        Serial.print(angle);
+        //Serial.print(angle);
         if(angle>=80 && angle<=100){
           Serial.print("AVANTI\n");
           if(state != "0000"){
@@ -230,7 +230,7 @@ void loop() {
           motor3.run(BACKWARD);
           motor4.run(BACKWARD);
         }
-        Serial.print(dataOUT);
+        //Serial.print(dataOUT);
         //Serial.print(extractRadius(dataOUT)+"\n");
         //Serial.print(extractAngle(dataOUT).toFloat());
         //dataOUT = "";
@@ -247,11 +247,11 @@ void loop() {
           stop();
         }else if(dataOUT.substring(9) == "Check\r\n" || dataOUT == "Check\r\n"){
           Serial.println("Check TROVATO");
-          esp8266Serial("AT+CIPSEND=0,4\r\n", 3000, DEBUG);
+          esp8266Serial("AT+CIPSEND=0,4\r\n", 2, DEBUG);
           while(Serial1.find(">"))
           {
           }
-          esp8266Serial("ACK\n\r\n", 3000, DEBUG);
+          esp8266Serial("ACK\n\r\n", 2, DEBUG);
         }
       }
       dataOUT = "";
