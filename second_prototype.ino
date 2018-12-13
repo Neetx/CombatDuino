@@ -13,6 +13,7 @@ String dataOUT = "";
 String ip = "";
 String state = "0000";
 
+
 const int buzzer = 52;
 
 void setup() {
@@ -71,7 +72,7 @@ void loop() {
             maxSpeed();
           }
           state = "0000";
-          forward();   
+          forward();
         }else if(angle<=10 && angle>=0) {
           Serial.print("DESTRA\n");
           if(state != "0010"){
@@ -111,7 +112,7 @@ void loop() {
           motor2.setSpeed(CONST);
           motor3.setSpeed(50);
           motor4.setSpeed(50);
-          forward(); 
+          forward();
         }else if(angle>45 && angle<80){
           Serial.print("PRIMO BASSO\n");
           if(state != "0110"){
@@ -125,7 +126,7 @@ void loop() {
           motor2.setSpeed(CONST);
           motor3.setSpeed(80);
           motor4.setSpeed(80);
-          forward(); 
+          forward();
         }else if(angle<-10 && angle>=-45){
           Serial.print("4o ALTO\n");
           if(state != "0111"){
@@ -167,7 +168,7 @@ void loop() {
           motor2.setSpeed(80);
           motor3.setSpeed(CONST);
           motor4.setSpeed(CONST);
-          forward(); 
+          forward();
         }else if(angle>135 && angle<170){
           Serial.print("2o BASSO\n");
           if(state != "1010"){
@@ -181,7 +182,7 @@ void loop() {
           motor2.setSpeed(50);
           motor3.setSpeed(CONST);
           motor4.setSpeed(CONST);
-          forward(); 
+          forward();
         }else if(angle<-100 && angle>=-135){
           Serial.print("3o ALTO\n");
           if(state != "1011"){
@@ -244,6 +245,13 @@ void loop() {
         }else if(dataOUT.substring(9) == "STOP\r\n" || dataOUT == "STOP\r\n"){
           Serial.println("STOP TROVATO");
           stop();
+        }else if(dataOUT.substring(9) == "Check\r\n" || dataOUT == "Check\r\n"){
+          Serial.println("Check TROVATO");
+          esp8266Serial("AT+CIPSEND=0,4\r\n", 3000, DEBUG);
+          while(Serial1.find(">"))
+          {
+          }
+          esp8266Serial("ACK\n\r\n", 3000, DEBUG);
         }
       }
       dataOUT = "";
