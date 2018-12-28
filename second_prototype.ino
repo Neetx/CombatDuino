@@ -1,3 +1,6 @@
+//#pragma GCC optimize ("-O3")
+//#pragma GCC push_options
+
 #include <AFMotor.h>
 #include <ArduinoJson.h>
 #define DEBUG true
@@ -6,6 +9,8 @@ AF_DCMotor motor1(1, MOTOR12_1KHZ);
 AF_DCMotor motor2(2, MOTOR12_1KHZ);
 AF_DCMotor motor3(3, MOTOR34_1KHZ);
 AF_DCMotor motor4(4, MOTOR34_1KHZ);
+
+int x = 0;
 
 const int CONST = 255;
 
@@ -23,6 +28,9 @@ void setup() {
   
   Serial.begin(9600);
   Serial1.begin(115200);
+  //Serial1.setTimeout(5);
+  //Serial.setTimeout(5);
+  
   Serial.println("Start");
   esp8266Serial("AT\r\n", 3000, DEBUG);
   esp8266Serial("AT+CWQAP\r\n", 3000, DEBUG);
@@ -40,6 +48,9 @@ void setup() {
   Serial.println("Get IP");
   esp8266Serial("AT+CIPMUX=1\r\n", 3000, DEBUG);
   esp8266Serial("AT+CIPSERVER=1,80\r\n", 3000, DEBUG);
+
+  Serial1.setTimeout(5);
+  Serial.setTimeout(5);
   
   maxSpeed();
   
@@ -261,11 +272,13 @@ void loop() {
           bool resp = root["Resp"];
           Serial.print(resp);
           if(resp == 1){
-            esp8266Serial("AT+CIPSEND=0,4\r\n", 2, DEBUG);
+            String r = "ACKACK\n";
+            esp8266Serial("AT+CIPSEND=0," + String(r.length()) + "\r\n", 2, DEBUG); //Todo: length parametrization
             while(Serial1.find(">"))
             {
             }
-            esp8266Serial("ACK\n\r\n", 2, DEBUG);
+            esp8266Serial( r + "\r\n", 2, DEBUG);
+            x++;
           }
         }//else{Serial.print("ERR1");}
       }
@@ -329,3 +342,4 @@ String extractJson(String str){
   return str.substring(str.indexOf("{"), str.indexOf("\r"));
 }
 
+//#pragma GCC pop_options
