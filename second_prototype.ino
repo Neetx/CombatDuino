@@ -272,7 +272,8 @@ void loop() {
           bool resp = root["Resp"];
           Serial.print(resp);
           if(resp == 1){
-            String r = "ACKACK\n";
+            //String r = String(x) + "\n";
+            String r = "{\"resp\":\""+String(x)+"\",\"params\":\"null\"}\n";
             esp8266Serial("AT+CIPSEND=0," + String(r.length()) + "\r\n", 2, DEBUG); //Todo: length parametrization
             while(Serial1.find(">"))
             {
