@@ -3,7 +3,29 @@
 
 #include <AFMotor.h>
 #include <ArduinoJson.h>
+#include <GCM.h>
+#include <AES.h>
+#include <Crypto.h>
+
 #define DEBUG true
+
+//start crypto section
+#define MAX_PLAINTEXT_LEN 128
+
+byte key[32] = {0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08,0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08};
+byte iv[12];//      = {0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad,0xde, 0xca, 0xf8, 0x88};
+byte plaintext[2];
+byte ciphertext[MAX_PLAINTEXT_LEN];
+
+GCM<AES256> *cipher = 0;
+
+byte buffer[256];
+size_t ivsize = 12;
+size_t posn, len;
+size_t inc = 16;
+
+
+//end crypto section
 
 AF_DCMotor motor1(1, MOTOR12_1KHZ);
 AF_DCMotor motor2(2, MOTOR12_1KHZ);
@@ -15,9 +37,13 @@ int x = 0;
 const int CONST = 255;
 
 String dataIN = "";
-String dataOUT = "";
+byte dataOUT[256];
+byte tmp[256];
 String ip = "";
 String state = "0000";
+
+int index = 0;
+int readed = 0;
 
 const int buzzer = 52;
 
@@ -49,17 +75,26 @@ void setup() {
   esp8266Serial("AT+CIPMUX=1\r\n", 3000, DEBUG);
   esp8266Serial("AT+CIPSERVER=1,80\r\n", 3000, DEBUG);
 
-  Serial1.setTimeout(5);
+  Serial1.setTimeout(10);
   Serial.setTimeout(5);
   
   maxSpeed();
+
+  cipher = new GCM<AES256>();
+  crypto_feed_watchdog();
+  cipher->clear();
+  if (!cipher->setKey(key, cipher->keySize())) {
+      Serial.print("setKey ");
+  }
+  //removed set iv
+  memset(buffer, 0xFF, sizeof(buffer));
   
   tone(buzzer, 250, 75);
 }
 
 void loop() {
   char c;
-
+  byte b;
   if (Serial.available()) {
     c = Serial.read();
     dataIN += c;
@@ -68,11 +103,98 @@ void loop() {
       dataIN = "";
     }
   }
-  if (Serial1.available()) {
+  Serial1.flush();
+  while(Serial1.available()>0 && readed == 0){
+    //delay(3);
+    b = Serial1.read();
+    dataOUT[index] = b;
+    index++;
+    if(b=='\n' && dataOUT[index-2]=='\r' && dataOUT[index-3]=='>' && dataOUT[index-4]=='>'){
+    //if(index>=86){
+    index = 0;
+    //dataOUT = Serial1.readString();
+      readed = 1;
+    }
+  }  
+   if(readed == 1){
+   /*if(Serial1.available()){
     c = Serial1.read();
     dataOUT += c;
-    if(c=='\n'){
-      String json = extractJson(dataOUT);
+    index++;
+    if(c=='\n' && dataOUT[index-2]=='\r' && dataOUT[index-3]=='>' && dataOUT[index-4]=='>'){
+    Serial1.flush();*/
+    readed = 0;
+    //index = 0;    
+//crypto section
+  int i=12;
+  int j=0;
+  int fl=0;
+  while(i<256 && dataOUT[i] !='\r' && dataOUT[i-1]!='>' && dataOUT[i-2]!='>'){
+    /*Serial.print("*");
+    if(dataOUT[i]==':'){
+      Serial.println("Found");
+      fl=1;
+    }*/
+    //if(fl==1){
+      //Serial.print("-");
+      tmp[j]=dataOUT[i];
+      j++;
+    //}
+    i++;
+  }
+  int datasize = j-1;
+  Serial.println();
+  //size_t datasize = dataOUT.length();
+  if(datasize==30){
+  /*Serial.println("Size");
+  Serial.println(datasize);
+  Serial.println("DATAOUT BYTE");
+  for(int i = 0; i< 50; i++){
+    Serial.print(dataOUT[i],HEX);
+  }
+  Serial.println("\nTEMP BYTE");
+  for(int i = 0; i< datasize; i++){
+    Serial.print(tmp[i],HEX);
+  }
+  Serial.println();*/
+  int j=0;
+  for(int i=ivsize;i<datasize-16;i++){
+    ciphertext[j]=tmp[i];
+    j++;
+  }
+  for(int i=0;i<ivsize;i++){
+    iv[i]=tmp[i];
+  }
+  int cryptsize = j;
+  Serial.println("\nCIPHERTEXT BYTE");
+  for(int i = 0; i< cryptsize; i++){
+    Serial.print(ciphertext[i],HEX);
+  }
+  Serial.println();
+  if (!cipher->setIV(iv, ivsize)) {
+      Serial.print("setIV ");
+  } 
+   for (posn = 0; posn < cryptsize ; posn += inc) {
+      len = cryptsize - posn;
+      if (len > inc)
+          len = inc;
+      cipher->decrypt(buffer + posn, ciphertext + posn, len);
+   }
+  for(int i=0;i<sizeof(plaintext);i++){
+    plaintext[i] = buffer[i];
+  }
+  Serial.println("Plaintext");
+  for(int i = 0; i< sizeof(plaintext)/sizeof(byte); i++){
+    Serial.print(plaintext[i],HEX);
+  }
+  Serial.println("\nCommand");
+  Serial.write(plaintext[0]);
+  Serial.println("Params");
+  //Serial.print((int8_t)plaintext[1],DEC);
+  //Serial.println();
+
+//end crypto
+      /*String json = extractJson(dataOUT);
       if(!json.equals("False")){
         Serial.print(json);
         StaticJsonBuffer<200> jsonBuffer;
@@ -91,7 +213,13 @@ void loop() {
                 if(a != nullptr){
                   //Serial.print(a);
                   int angle = a.toInt();
-                  Serial.print(angle);
+                  Serial.print(angle);*/
+                 if(plaintext[0]==5){
+                 int8_t angle1 = (int8_t)plaintext[1];
+                                   Serial.println(angle1);
+
+                 int angle = angle1*2;
+                  Serial.println(angle);
                   if(angle>=80 && angle<=100){
                     Serial.print("AVANTI\n");
                     if(state != "0000"){
@@ -257,19 +385,36 @@ void loop() {
                     motor3.run(BACKWARD);
                     motor4.run(BACKWARD);
                   }
-                }  
-              }//else{Serial.print("ERR2");}           
-            } else if (cmd.equals("Shoot")){
+                //}  
+              //}else{Serial.print("ERR2");}           
+            //} else if (cmd.equals("Shoot")){
+              } else if (plaintext[0]==0){
               Serial.println("SHOOT TROVATO");
               tone(buzzer, 250, 75);
-            } else if (cmd.equals("Stop")){
-              //Serial.println("STOP TROVATO");
+            //} else if (cmd.equals("Stop")){
+            } else if (plaintext[0]==12){
+              Serial.println("STOP TROVATO");
               stop();
-            } else if(cmd.equals("CHECK")){
+            //} else if(cmd.equals("CHECK")){
+            } else if (plaintext[0]==10){
               Serial.println("Check TROVATO");
+                //String r = String(x) + "\n";
+                String r = "{\"resp\":\""+String(x)+"\",\"params\":\"null\"}\n";
+                esp8266Serial("AT+CIPSEND=0," + String(r.length()) + "\r\n", 2, DEBUG); //Todo: length parametrization
+                while(Serial1.find(">"))
+                {
+                }
+                esp8266Serial( r + "\r\n", 2, DEBUG);
+                x++;
             }
+            memset(buffer, 0xFF, sizeof(buffer));
+            memset(ciphertext, 0x00, sizeof(ciphertext));
+            memset(tmp, 0x00, sizeof(tmp));
           }
-          bool resp = root["Resp"];
+          memset(dataOUT, 0x00, sizeof(dataOUT));
+       }
+  }
+          /*bool resp = root["Resp"];
           Serial.print(resp);
           if(resp == 1){
             //String r = String(x) + "\n";
@@ -283,10 +428,14 @@ void loop() {
           }
         }//else{Serial.print("ERR1");}
       }
-    dataOUT = "";
+    //dataOUT = "";
+  memset(buffer, 0xFF, sizeof(buffer));
+  memset(ciphertext, 0x00, sizeof(ciphertext));
+  memset(dataOUT, 0x00, sizeof(dataOUT));
+  memset(tmp, 0x00, sizeof(tmp));
     }
   }
-}
+}*/
 
 String esp8266Serial(String command, const int timeout, boolean debug)
   {
@@ -333,6 +482,14 @@ void backward(){
   motor2.run(BACKWARD);
   motor3.run(BACKWARD);
   motor4.run(BACKWARD);
+}
+
+void extractCrypto(byte str[], byte tmp[]){
+  int i=10;
+  while(i<256 && str[i]=='\n' && str[i-1] =='\r' && str[i-2]=='>' && str[i-3]=='>'){
+    tmp[i]=str[i];
+    i++;
+  }
 }
 
 String extractJson(String str){
