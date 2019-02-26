@@ -6,13 +6,17 @@
 #include <GCM.h>
 #include <AES.h>
 #include <Crypto.h>
+#include <SPI.h>
+#include <SD.h>
 
 #define DEBUG true
+
+File myFile;
 
 //start crypto section
 #define MAX_PLAINTEXT_LEN 128
 
-byte key[32] = {0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08,0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08};
+byte key[32];// = {0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08,0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08};
 byte iv[12];//      = {0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad,0xde, 0xca, 0xf8, 0x88};
 byte plaintext[2];
 byte ciphertext[MAX_PLAINTEXT_LEN];
@@ -45,15 +49,50 @@ String state = "0000";
 int index = 0;
 int readed = 0;
 
-const int buzzer = 52;
+const int buzzer = 31;
+
+byte filebuffer[12];
 
 void setup() {
+
+  Serial.begin(9600);
+  Serial1.begin(115200);
+
+  memset(filebuffer, 0x00, sizeof(filebuffer));
   
+  if (!SD.begin(53)) {
+    Serial.println("initialization failed!");
+    while (1);
+  }
+  myFile = SD.open("test.txt");
+  if (myFile) {
+    //Serial.println("test.txt:");
+    // read from the file until there's nothing else in it:
+    while (myFile.available()) {
+      myFile.read(key,32);
+      myFile.read(iv,12);
+    }
+    // close the file:
+    myFile.close();
+  } else {
+    // if the file didn't open, print an error:
+    Serial.println("error opening test.txt");
+  }
+
+  Serial.println("\nKEY FROM SD BYTE");
+  for(int i = 0; i< 32; i++){
+    Serial.print(key[i],HEX);
+  }
+
+  Serial.println("\nIV FROM SD BYTE");
+  for(int i = 0; i< 12; i++){
+    Serial.print(iv[i],HEX);
+  }
+  Serial.println();
   pinMode(buzzer, OUTPUT);
   digitalWrite(buzzer, LOW);
   
-  Serial.begin(9600);
-  Serial1.begin(115200);
+
   //Serial1.setTimeout(5);
   //Serial.setTimeout(5);
   
@@ -187,9 +226,9 @@ void loop() {
   for(int i = 0; i< sizeof(plaintext)/sizeof(byte); i++){
     Serial.print(plaintext[i],HEX);
   }
-  Serial.println("\nCommand");
-  Serial.write(plaintext[0]);
-  Serial.println("Params");
+  //Serial.println("\nCommand");
+  //Serial.write(plaintext[0]);
+  //Serial.println("Params");
   //Serial.print((int8_t)plaintext[1],DEC);
   //Serial.println();
 
@@ -216,7 +255,7 @@ void loop() {
                   Serial.print(angle);*/
                  if(plaintext[0]==5){
                  int8_t angle1 = (int8_t)plaintext[1];
-                                   Serial.println(angle1);
+                 //Serial.println(angle1);
 
                  int angle = angle1*2;
                   Serial.println(angle);
